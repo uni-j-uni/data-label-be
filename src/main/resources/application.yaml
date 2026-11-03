@@ -1,0 +1,77 @@
+# Common config file
+spring:
+  # Application Info
+  application:
+    name: data-label-be
+
+  # 프로젝트 루트의 .env 파일을 프로퍼티로 로드 (없으면 OS 환경변수만 사용)
+  config:
+    import: optional:file:.env[.properties]
+
+  # Database settings
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        # LAZY 컬렉션(객체의 키포인트 등)을 부모마다 따로 조회하지 않고 IN 쿼리로 묶어 조회
+        default_batch_fetch_size: 100
+
+  # Redis settings
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 5000
+
+  # JWT
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-validity-in-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:10800}
+    refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:604800}
+
+  # File Upload Settings
+  # 서블릿 제한은 app.file.max-size-bytes 보다 높게 둔다.
+  # 서블릿 단계에서 걸리면 요청 전체가 413이 되어 파일별 실패 리포팅을 할 수 없다.
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 200MB
+
+# Tomcat 기본 파트 개수 제한(50)에 걸리면 요청이 연결 끊김으로 실패한다.
+# 이미지 100장 + name 필드를 한 요청에 담을 수 있도록 여유 있게 둔다.
+server:
+  tomcat:
+    max-part-count: 128
+
+# Swagger Server
+swagger:
+  server:
+    profile: ${SWAGGER_SERVER_URL:http://localhost:8080}
+    name: ${SWAGGER_SERVER_NAME:Local}
+
+# Swagger UI 그룹 드롭다운을 전체 → 사용자 → 관리자 순으로 정렬 (표시 이름 기준 내림차순)
+springdoc:
+  swagger-ui:
+    groups-order: desc
+
+# CORS
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+# Custom app settings
+app:
+  file:
+    # 파일 1건당 허용 용량 (10MB)
+    max-size-bytes: 10485760
+    upload-dir: ${FILE_UPLOAD_DIR:./uploads/images}
+  cookie:
+    secure: ${COOKIE_SECURE:false}
