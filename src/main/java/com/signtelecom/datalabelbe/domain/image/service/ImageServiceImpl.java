@@ -200,7 +200,8 @@ public class ImageServiceImpl implements ImageService {
   /**
    * 파일들을 하나씩 검증해 배치에 저장
    *
-   * <p>파일 단위로 예외를 잡아내므로 일부 파일이 실패해도 통과한 파일은 그대로 저장됨. 요청에 포함된 순서를 유지한 채 성공/실패 결과를 함께 반환
+   * <p>파일 단위로 예외를 잡아내므로 일부 파일이 실패해도 통과한 파일은 그대로 저장됨. 응답의 items 는 성공 건이 먼저, 실패 건이 나중에 오며 각 그룹 안에서는
+   * 요청 순서를 유지함
    */
   private ImageUploadResponse storeIntoBatch(ImageBatch batch, List<MultipartFile> files) {
 
@@ -211,14 +212,22 @@ public class ImageServiceImpl implements ImageService {
     for (MultipartFile file : files) {
       String filename = resolveOriginalFilename(file);
 
+      StoredImage storedImage = null;
       try {
-        StoredImage storedImage = imageStorageService.store(batch.getId(), file);
-        stored.add(storedImage);
+        storedImage = imageStorageService.store(batch.getId(), file);
         images.add(imageMapper.toImage(batch, filename, storedImage));
+        stored.add(storedImage);
       } catch (CustomException e) {
         // 검증 실패는 요청 전체를 중단시키지 않고 사유만 모아 응답에 담음
         log.info("파일 검증 실패 - filename: {}, reason: {}", filename, e.getMessage());
         failures.add(imageMapper.toFailure(filename, e.getMessage()));
+      } catch (RuntimeException e) {
+        // 깨진 이미지 헤더 등 예상 밖의 예외도 해당 파일의 실패로만 처리해 나머지 파일의 저장을 막지 않음
+        log.warn("파일 처리 중 예상치 못한 오류 - filename: {}", filename, e);
+        if (storedImage != null) {
+          imageStorageService.delete(storedImage.storagePath());
+        }
+        failures.add(imageMapper.toFailure(filename, ImageErrorCode.INVALID_IMAGE.getMessage()));
       }
     }
 
